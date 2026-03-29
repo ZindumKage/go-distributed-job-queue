@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+
 	"github.com/ZindumKage/internal/handler"
 	"github.com/ZindumKage/internal/metrics"
 
@@ -10,8 +12,16 @@ import (
 func main() {
 	r := gin.Default()
 
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.JSON(200, gin.H{
+			"status": "ok",
+			"port": port,
+		})
 	})
 
 	r.GET("/metrics", func(c *gin.Context) {
@@ -26,5 +36,5 @@ func main() {
 	r.POST("/jobs", handler.CreateJob)
 	r.GET("/jobs/:id", handler.GetJobStatus)
 
-	r.Run(":8080")
+	r.Run(":" + port)
 }

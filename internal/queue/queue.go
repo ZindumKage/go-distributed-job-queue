@@ -13,8 +13,8 @@ import (
 const QueueName = "jobs"
 
 func Enqueue(job model.Job) error {
-	data, _ := json.Marshal(job)
-	return db.Rdb.RPush(db.Ctx, QueueName, data).Err()
+	
+	return db.Rdb.RPush(db.Ctx, QueueName, job.ID).Err()
 }
 
 func Dequeue() (*model.Job, error) {
