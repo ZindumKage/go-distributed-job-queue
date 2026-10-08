@@ -1,14 +1,17 @@
 package worker
 
 import (
+	"fmt"
 	"log"
+	"math/rand"
+	"strconv"
 	"time"
+	"os"
 
 	"github.com/ZindumKage/internal/db"
 	"github.com/ZindumKage/internal/queue"
 )
 
-const QueueName = "jobs"
 const WorkerPoolSize = 20
 
 func StartWorker() {
@@ -16,7 +19,6 @@ func StartWorker() {
 
 	jobChan := make(chan string, 100)
 
-	//  Start worker pool ONCE
 	for i := 0; i < WorkerPoolSize; i++ {
 		go func(workerID int) {
 			for jobID := range jobChan {
@@ -26,54 +28,68 @@ func StartWorker() {
 		}(i)
 	}
 
-	// Listen for jobs
 	for {
-		res, err := db.Rdb.BRPop(db.Ctx, 0*time.Second, QueueName).Result()
+		// BLPop + RPush = FIFO
+		res, err := db.Rdb.BLPop(db.Ctx, 0, queue.QueueName).Result()
 		if err != nil {
 			log.Println("Error fetching jobs:", err)
+			time.Sleep(time.Second) // avoid a hot loop if Redis is down
 			continue
 		}
-
-		jobID := res[1]
-
-		// send to worker pool
-		jobChan <- jobID
+		jobChan <- res[1]
 	}
 }
 
-func process(jobID string) {
-	log.Println("Processing job:", jobID)
+var failRate = loadFailRate()
 
+func loadFailRate() float64 {
+	if v := os.Getenv("FAIL_RATE"); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil {
+			return f
+		}
+	}
+	return 0.05
+}
+
+// shouldFail: deterministic if the job asked for it, random otherwise
+func shouldFail(data map[string]string) bool {
+	retries, _ := strconv.Atoi(data["retries"])
+	if ft, ok := data["fail_times"]; ok {
+		n, _ := strconv.Atoi(ft)
+		return retries < n
+	}
+	return rand.Float64() < failRate
+}
+
+func process(jobID string) {
 	jobKey := "job:" + jobID
 
-	// fetch job data
-	jobData, err := db.Rdb.HGetAll(db.Ctx, jobKey).Result()
-	if err != nil || len(jobData) == 0 {
+	data, err := db.Rdb.HGetAll(db.Ctx, jobKey).Result()
+	if err != nil || len(data) == 0 {
 		log.Println("Job not found:", jobID)
 		return
 	}
 
-	// update status → processing
 	if err := db.Rdb.HSet(db.Ctx, jobKey, "status", "processing").Err(); err != nil {
 		log.Println("Failed to update status:", err)
 		return
 	}
 
-	time.Sleep(2 * time.Second)
+	time.Sleep(2 * time.Second) // simulate work
 
-	// simulate failure
-	if len(jobID) > 0 && jobID[len(jobID)-1] == '0' {
-		log.Println("Job failed:", jobID)
-		time.Sleep(2 * time.Second)
-		queue.RetryJob(jobID)
+	if shouldFail(data) {
+		attempt, _ := strconv.Atoi(data["retries"])
+		log.Printf("Job %s failed (attempt %d)", jobID, attempt+1)
+		db.Rdb.HSet(db.Ctx, jobKey, "last_error", fmt.Sprintf("simulated failure on attempt %d", attempt+1))
+		if err := queue.RetryJob(jobID); err != nil {
+			log.Println("Retry error:", jobID, err)
+		}
 		return
 	}
 
-	// success
 	if err := db.Rdb.HSet(db.Ctx, jobKey, "status", "completed").Err(); err != nil {
 		log.Println("Failed to mark completed:", err)
 		return
 	}
-
 	log.Println("Job completed:", jobID)
 }

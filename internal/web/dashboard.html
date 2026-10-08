@@ -1,0 +1,726 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Job Service Console</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #eef1f6;
+        --panel: #fff;
+        --ink: #14213d;
+        --muted: #6b7794;
+        --line: #e1e6f0;
+        --code: #0f1a33;
+        --pending: #e3a72f;
+        --processing: #2f80ed;
+        --retrying: #8b5cf6;
+        --completed: #1fa971;
+        --failed: #e5484d;
+        --get: #1fa971;
+        --post: #2f80ed;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      body {
+        background: var(--bg);
+        color: var(--ink);
+        font:
+          15px/1.5 "Instrument Sans",
+          system-ui,
+          sans-serif;
+        padding: 32px 20px 56px;
+      }
+      .wrap {
+        max-width: 1080px;
+        margin: 0 auto;
+        display: grid;
+        gap: 20px;
+      }
+      .mono {
+        font-family: "IBM Plex Mono", ui-monospace, monospace;
+      }
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 24px;
+        box-shadow:
+          0 1px 2px rgba(20, 33, 61, 0.04),
+          0 12px 32px -16px rgba(20, 33, 61, 0.18);
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      h1 {
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+      }
+      .sub {
+        color: var(--muted);
+        font-size: 14px;
+        margin-top: 2px;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        background: #e8f7f0;
+        color: #0d6b47;
+        font-weight: 600;
+        font-size: 14px;
+      }
+      .pill.bad {
+        background: #fdecec;
+        color: #a62a2e;
+      }
+      .dot {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: currentColor;
+        position: relative;
+      }
+      .pill:not(.bad) .dot::after {
+        content: "";
+        position: absolute;
+        inset: -4px;
+        border-radius: 50%;
+        border: 2px solid currentColor;
+        opacity: 0.4;
+        animation: ping 1.8s ease-out infinite;
+      }
+      @keyframes ping {
+        to {
+          transform: scale(1.8);
+          opacity: 0;
+        }
+      }
+      .pill small {
+        font-weight: 500;
+        opacity: 0.8;
+      }
+      .insts {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .pill.sm {
+        padding: 6px 12px;
+        font-size: 13px;
+        gap: 8px;
+      }
+      .pill.warn {
+        background: #fff4dc;
+        color: #8a5a00;
+      }
+      /* hero pipeline */
+      .hero h2 {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--muted);
+        margin-bottom: 14px;
+      }
+      .big {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+        margin-bottom: 18px;
+        flex-wrap: wrap;
+      }
+      .big b {
+        font-size: 56px;
+        line-height: 1;
+        font-weight: 700;
+        letter-spacing: -0.03em;
+        font-variant-numeric: tabular-nums;
+      }
+      .big span {
+        color: var(--muted);
+      }
+      .bar {
+        display: flex;
+        height: 34px;
+        border-radius: 10px;
+        overflow: hidden;
+        background: var(--line);
+        gap: 2px;
+      }
+      .bar i {
+        display: block;
+        height: 100%;
+        min-width: 0;
+        transition: width 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+      }
+      .legend {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-top: 18px;
+      }
+      .lg {
+        border-top: 3px solid var(--c);
+        padding-top: 10px;
+      }
+      .lg b {
+        display: block;
+        font-size: 26px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+      }
+      .lg span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      /* tiles */
+      .tiles {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 20px;
+      }
+      .tile {
+        padding: 20px;
+      }
+      .tile span {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .tile b {
+        display: block;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-variant-numeric: tabular-nums;
+        margin-top: 2px;
+      }
+      .tile small {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .spark {
+        width: 100%;
+        height: 46px;
+        margin-top: 6px;
+      }
+      /* endpoints */
+      .eps h2 {
+        font-size: 18px;
+        font-weight: 700;
+        margin-bottom: 4px;
+      }
+      .eps > p {
+        color: var(--muted);
+        font-size: 14px;
+        margin-bottom: 16px;
+      }
+      .ep {
+        border: 1px solid var(--line);
+        border-left: 5px solid var(--m);
+        border-radius: 10px;
+        margin-bottom: 10px;
+        background: color-mix(in srgb, var(--m) 5%, #fff);
+      }
+      .ep summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 14px;
+        cursor: pointer;
+        border-radius: 10px;
+      }
+      .ep summary::-webkit-details-marker {
+        display: none;
+      }
+      .ep summary:focus-visible,
+      button:focus-visible,
+      input:focus-visible {
+        outline: 3px solid #9db4ff;
+        outline-offset: 2px;
+      }
+      .verb {
+        background: var(--m);
+        color: #fff;
+        font-weight: 500;
+        font-size: 12.5px;
+        padding: 3px 0;
+        width: 58px;
+        text-align: center;
+        border-radius: 6px;
+      }
+      .path {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .desc {
+        color: var(--muted);
+        font-size: 14px;
+        margin-left: auto;
+        text-align: right;
+      }
+      .body {
+        padding: 4px 14px 16px;
+        display: grid;
+        gap: 12px;
+        border-top: 1px solid var(--line);
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        padding-top: 12px;
+      }
+      input {
+        font: inherit;
+        font-family: "IBM Plex Mono", monospace;
+        font-size: 13px;
+        padding: 8px 10px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        min-width: 300px;
+        background: #fff;
+      }
+      button {
+        font: inherit;
+        font-weight: 600;
+        font-size: 14px;
+        border: 0;
+        border-radius: 8px;
+        padding: 9px 16px;
+        background: var(--ink);
+        color: #fff;
+        cursor: pointer;
+      }
+      button:active {
+        transform: translateY(1px);
+      }
+      .res {
+        font-size: 12.5px;
+        color: var(--muted);
+        display: flex;
+        gap: 14px;
+      }
+      .res .ok {
+        color: #0d6b47;
+        font-weight: 600;
+      }
+      .res .err {
+        color: #a62a2e;
+        font-weight: 600;
+      }
+      pre {
+        background: var(--code);
+        color: #cfe0ff;
+        border-radius: 10px;
+        padding: 14px 16px;
+        font:
+          13px/1.6 "IBM Plex Mono",
+          monospace;
+        overflow-x: auto;
+      }
+      .k {
+        color: #8fb4ff;
+      }
+      .s {
+        color: #7de0b0;
+      }
+      .n {
+        color: #ffc978;
+      }
+      footer {
+        color: var(--muted);
+        font-size: 13px;
+        text-align: center;
+      }
+      @media (max-width: 820px) {
+        .legend {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .tiles {
+          grid-template-columns: repeat(2, 1fr);
+        }
+        .desc {
+          display: none;
+        }
+        input {
+          min-width: 0;
+          width: 100%;
+        }
+        .big b {
+          font-size: 44px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        * {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div>
+          <h1>Job Service Console</h1>
+          <p class="sub">
+            Go · Gin · Redis — 3 API instances, shared queue, worker pool,
+            retries and dead-letter queue
+          </p>
+        </div>
+        <div class="insts" id="health"></div>
+      </header>
+
+      <section class="panel hero">
+        <h2>Jobs in the pipeline</h2>
+        <div class="big"><b id="total">0</b><span>jobs submitted</span></div>
+        <div
+          class="bar"
+          id="bar"
+          role="img"
+          aria-label="Share of jobs by status"
+        ></div>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section class="tiles">
+        <div class="panel tile">
+          <span>Success rate</span><b id="rate">–</b
+          ><small>completed vs. permanently failed</small>
+        </div>
+        <div class="panel tile">
+          <span>Throughput</span><b id="tput">0/s</b
+          ><small>completed jobs per second</small>
+        </div>
+        <div class="panel tile">
+          <span>Dead-letter queue</span><b id="dlq">0</b
+          ><small>jobs that exhausted all retries</small>
+        </div>
+        <div class="panel tile">
+          <span>Queue depth</span
+          ><svg
+            class="spark"
+            id="spark"
+            viewBox="0 0 200 46"
+            preserveAspectRatio="none"
+          ></svg
+          ><small>waiting + running, last 60 s</small>
+        </div>
+      </section>
+
+      <section class="panel eps">
+        <h2>API endpoints</h2>
+        <p>Open an endpoint and press Execute to call the live service.</p>
+        <div id="eps"></div>
+      </section>
+
+      <footer id="foot">Refreshes every second</footer>
+    </div>
+
+    <script>
+      const qs = new URLSearchParams(location.search);
+      const demo = qs.has("demo");
+      // Three API instances share one Redis. Override with ?ports=8080,8081,8082
+      const PORTS = (qs.get("ports") || "8080,8081,8082")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean);
+      const HOST =
+        location.protocol === "file:" ? "localhost" : location.hostname;
+      const INSTANCES = PORTS.map((p) => `http://${HOST}:${p}`);
+      let up = INSTANCES.map(() => false),
+        rr = 0;
+      const $ = (id) => document.getElementById(id);
+      const STATUS = [
+        ["pending", "Pending", "pending_jobs"],
+        ["processing", "Processing", "processing_jobs"],
+        ["retrying", "Retrying", "retrying_jobs"],
+        ["completed", "Completed", "completed_jobs"],
+        ["failed", "Failed", "failed_jobs"],
+      ];
+
+      /* ---------- API layer (with optional demo data for screenshots: /?demo) ---------- */
+      let sim = {
+        total_jobs: 1000,
+        pending_jobs: 520,
+        processing_jobs: 20,
+        retrying_jobs: 7,
+        completed_jobs: 441,
+        failed_jobs: 12,
+        dlq_size: 12,
+      };
+      function simStep() {
+        const s = sim,
+          done = Math.min(s.processing_jobs, Math.round(8 + Math.random() * 4));
+        s.processing_jobs -= done;
+        s.completed_jobs += done - (Math.random() < 0.08 ? 1 : 0);
+        if (Math.random() < 0.08) {
+          s.retrying_jobs++;
+        }
+        if (s.retrying_jobs > 0 && Math.random() < 0.3) {
+          s.retrying_jobs--;
+          s.pending_jobs++;
+        }
+        const take = Math.min(s.pending_jobs, 20 - s.processing_jobs);
+        s.pending_jobs -= take;
+        s.processing_jobs += take;
+      }
+      async function api(path, opt = {}, base = INSTANCES[0]) {
+        const t = performance.now();
+        if (demo) {
+          await new Promise((r) => setTimeout(r, 8 + Math.random() * 10));
+          const ms = performance.now() - t,
+            m = opt.method || "GET";
+          if (path === "/health")
+            return {
+              status: 200,
+              ms,
+              body: { status: "ok", port: new URL(base).port },
+            };
+          if (path === "/metrics") return { status: 200, ms, body: { ...sim } };
+          if (m === "POST") {
+            const id = crypto.randomUUID();
+            sim.total_jobs++;
+            sim.pending_jobs++;
+            return { status: 200, ms, body: { job_id: id } };
+          }
+          return {
+            status: 200,
+            ms,
+            body: { status: "completed", retries: "0" },
+          };
+        }
+        try {
+          const r = await fetch(base + path, opt);
+          const body = await r.json().catch(() => null);
+          return { status: r.status, ms: performance.now() - t, body };
+        } catch (e) {
+          return {
+            status: 0,
+            ms: performance.now() - t,
+            body: { error: "Service unreachable" },
+          };
+        }
+      }
+
+      /* ---------- Multi-instance helpers ---------- */
+      function ordered(rotate) {
+        const ups = INSTANCES.filter((_, i) => up[i]),
+          downs = INSTANCES.filter((_, i) => !up[i]);
+        if (rotate && ups.length > 1) {
+          const k = rr++ % ups.length;
+          ups.push(...ups.splice(0, k));
+        }
+        return ups.concat(downs);
+      }
+      async function anyApi(path, opt = {}, rotate = false) {
+        let r;
+        for (const b of ordered(rotate)) {
+          r = await api(path, opt, b);
+          r.base = b;
+          if (r.status !== 0) return r;
+        }
+        return r;
+      }
+      async function call(e, path) {
+        if (e.p === "/health") {
+          const rs = await Promise.all(
+            INSTANCES.map((b) => api("/health", {}, b)),
+          );
+          return {
+            status: rs.every((x) => x.status === 200) ? 200 : 503,
+            ms: Math.max(...rs.map((x) => x.ms)),
+            body: Object.fromEntries(
+              rs.map((x, k) => ["instance :" + PORTS[k], x.body]),
+            ),
+          };
+        }
+        const r = await anyApi(path, { method: e.m }, e.m === "POST");
+        if (e.m === "POST" && r.body && r.body.job_id)
+          r.body = { ...r.body, served_by: ":" + new URL(r.base).port };
+        return r;
+      }
+
+      /* ---------- Dashboard ---------- */
+      const hist = [];
+      let lastDone = null,
+        lastT = null,
+        tput = 0;
+      $("legend").innerHTML = STATUS.map(
+        ([k, l]) =>
+          `<div class="lg" style="--c:var(--${k})"><b id="n-${k}">0</b><span>${l}</span></div>`,
+      ).join("");
+      $("bar").innerHTML = STATUS.map(
+        ([k]) => `<i id="b-${k}" style="background:var(--${k});width:0"></i>`,
+      ).join("");
+
+      async function refreshHealth() {
+        const rs = await Promise.all(
+          INSTANCES.map((b) => api("/health", {}, b)),
+        );
+        up = rs.map(
+          (r) => r.status === 200 && r.body && r.body.status === "ok",
+        );
+        const n = up.filter(Boolean).length,
+          total = INSTANCES.length;
+        const cls = n === total ? "" : n ? " warn" : " bad";
+        const text =
+          n === total
+            ? `All ${total} instances healthy`
+            : n
+              ? `${n} of ${total} instances healthy`
+              : "No instances reachable";
+        $("health").innerHTML =
+          `<div class="pill${cls}"><span class="dot"></span>${text}</div>` +
+          rs
+            .map(
+              (r, i) =>
+                `<div class="pill sm${up[i] ? "" : " bad"}"><span class="dot"></span>:${PORTS[i]}<small class="mono">${up[i] ? Math.round(r.ms) + " ms" : "down"}</small></div>`,
+            )
+            .join("");
+      }
+      async function refreshMetrics() {
+        if (demo) simStep();
+        const r = await anyApi("/metrics");
+        if (!r || r.status !== 200 || !r.body) return;
+        const m = r.body,
+          total = m.total_jobs || 0;
+        $("total").textContent = total.toLocaleString();
+        STATUS.forEach(([k, , key]) => {
+          const v = m[key] || 0;
+          $("n-" + k).textContent = v.toLocaleString();
+          $("b-" + k).style.width = (total ? (v / total) * 100 : 0) + "%";
+        });
+        const done = m.completed_jobs || 0,
+          fail = m.failed_jobs || 0,
+          now = performance.now();
+        $("rate").textContent =
+          done + fail ? ((done / (done + fail)) * 100).toFixed(1) + "%" : "–";
+        $("dlq").textContent = m.dlq_size || 0;
+        if (lastDone !== null && now > lastT) {
+          tput =
+            tput * 0.6 + ((done - lastDone) / ((now - lastT) / 1000)) * 0.4;
+          $("tput").textContent = Math.max(0, tput).toFixed(1) + "/s";
+        }
+        lastDone = done;
+        lastT = now;
+        hist.push(
+          (m.pending_jobs || 0) +
+            (m.processing_jobs || 0) +
+            (m.retrying_jobs || 0),
+        );
+        if (hist.length > 60) hist.shift();
+        drawSpark();
+      }
+      function drawSpark() {
+        const max = Math.max(...hist, 1),
+          step = 200 / Math.max(hist.length - 1, 1);
+        const pts = hist.map((v, i) => [i * step, 44 - (v / max) * 40]);
+        const line = pts
+          .map(
+            (p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1),
+          )
+          .join(" ");
+        $("spark").innerHTML =
+          `<path d="${line} L200 46 L0 46Z" fill="#2f80ed" opacity=".12"/><path d="${line}" fill="none" stroke="#2f80ed" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/>`;
+      }
+
+      /* ---------- Swagger-style endpoint explorer ---------- */
+      let lastId = "";
+      const EPS = [
+        { m: "GET", p: "/health", d: "Service liveness check" },
+        { m: "GET", p: "/metrics", d: "Queue, status and DLQ counters" },
+        { m: "POST", p: "/jobs", d: "Create a job and enqueue it" },
+        {
+          m: "GET",
+          p: "/jobs/{id}",
+          d: "Fetch a job’s current status",
+          param: true,
+        },
+      ];
+      $("eps").innerHTML = EPS.map(
+        (e, i) => `
+ <details class="ep" style="--m:var(--${e.m === "GET" ? "get" : "post"})">
+  <summary><span class="verb mono">${e.m}</span><span class="path mono">${e.p}</span><span class="desc">${e.d}</span></summary>
+  <div class="body">
+   <div class="row">${e.m === "POST" ? `<input id="fail-${i}" style="min-width:300px" placeholder="fail_times (optional): 2 = recovers, 99 = goes to DLQ" aria-label="number of times to fail">` : ""}${e.param ? `<input id="id-${i}" placeholder="job id (paste or create one with POST /jobs)" aria-label="job id">` : ""}<button data-i="${i}">Execute</button></div>
+   <div class="res" id="res-${i}"></div>
+   <pre id="out-${i}" hidden></pre>
+  </div>
+ </details>`,
+      ).join("");
+
+      function colorize(o) {
+        return JSON.stringify(o, null, 2).replace(
+          /("(?:[^"\\]|\\.)*")(\s*:)?|\b(\d+(?:\.\d+)?)\b/g,
+          (x, str, colon, num) =>
+            str
+              ? colon
+                ? `<span class="k">${str}</span>${colon}`
+                : `<span class="s">${str}</span>`
+              : `<span class="n">${num}</span>`,
+        );
+      }
+      $("eps").addEventListener("click", async (ev) => {
+        const b = ev.target.closest("button[data-i]");
+        if (!b) return;
+        const i = +b.dataset.i,
+          e = EPS[i];
+        let path = e.p;
+        if (e.param) {
+          const v = $("id-" + i).value.trim() || lastId;
+          if (!v) {
+            $("res-" + i).innerHTML =
+              '<span class="err">Enter a job id first</span>';
+            return;
+          }
+          path = "/jobs/" + encodeURIComponent(v);
+        }
+        if (e.m === "POST") {
+          const f = $("fail-" + i).value.trim();
+          if (f) path += "?fail=" + encodeURIComponent(f);
+        }
+        b.disabled = true;
+        const r = await call(e, path);
+        b.disabled = false;
+        if (e.m === "POST" && r.body && r.body.job_id) {
+          lastId = r.body.job_id;
+          EPS.forEach((x, j) => {
+            if (x.param) $("id-" + j).value = lastId;
+          });
+        }
+        $("res-" + i).innerHTML =
+          `<span class="${r.status === 200 ? "ok" : "err"}">${r.status || "ERR"}</span><span>${Math.round(r.ms)} ms</span>`;
+        const out = $("out-" + i);
+        out.hidden = false;
+        out.innerHTML = colorize(r.body);
+      });
+
+      if (demo)
+        $("foot").textContent =
+          "Demo data — remove ?demo to see the live service";
+      refreshHealth();
+      refreshMetrics();
+      setInterval(refreshMetrics, 1000);
+      setInterval(refreshHealth, 3000);
+    </script>
+  </body>
+</html>
