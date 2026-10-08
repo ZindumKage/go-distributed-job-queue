@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/ZindumKage/internal/db"
 	"github.com/ZindumKage/internal/model"
@@ -14,32 +15,32 @@ func CreateJob(c *gin.Context) {
 	id := uuid.New().String()
 	jobKey := "job:" + id
 
-	job := model.Job{
-		ID:     id,
-		Status: "pending",
+	fields := map[string]interface{}{
+		"status":  "pending",
+		"retries": 0,
 	}
 
-	
-	if err := db.Rdb.HSet(db.Ctx, jobKey, map[string]interface{}{
-		"status": "pending",
-	}).Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to save job",
-		})
+	// optional: ?fail=N makes this job fail N times before it can succeed
+	if f := c.Query("fail"); f != "" {
+		n, err := strconv.Atoi(f)
+		if err != nil || n < 0 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "fail must be a non-negative integer"})
+			return
+		}
+		fields["fail_times"] = n
+	}
+
+	if err := db.Rdb.HSet(db.Ctx, jobKey, fields).Err(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save job"})
 		return
 	}
 
-	
-	if err := queue.Enqueue(job); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "failed to enqueue job",
-		})
+	if err := queue.Enqueue(model.Job{ID: id, Status: "pending"}); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to enqueue job"})
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"job_id": id,
-	})
+	c.JSON(http.StatusOK, gin.H{"job_id": id})
 }
 
 func GetJobStatus(c *gin.Context) {

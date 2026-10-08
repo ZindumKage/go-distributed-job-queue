@@ -2,10 +2,6 @@ package main
 
 import "github.com/ZindumKage/internal/worker"
 
-
-
-
-
-func main() {
+ func main() {
 	worker.StartWorker()
 }
